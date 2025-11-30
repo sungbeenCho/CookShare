@@ -1,0 +1,24 @@
+# 빌드 결과물
+/bin/
+/build/
+/target/
+out/
+
+# 로그, temp
+*.log
+*.tmp
+
+# Eclipse 관련
+.metadata/
+.settings/
+
+# OS별
+.DS_Store
+Thumbs.db
+
+# IDE 관련
+.vscode/
+.idea/
+
+# 클래스 파일
+*.class

@@ -1,0 +1,35 @@
+body {
+    background-color: #FAF6E9;
+}
+
+/* 네비게이션 바 */
+.navbar-custom {
+    background-color: #5E8C61;
+}
+
+/* 푸터 */
+.footer-custom {
+    background-color: #4A3F35;
+    color: #FAF6E9;
+}
+
+/* 로그인/회원가입 카드 */
+.auth-card {
+    max-width: 420px;
+    margin: 80px auto;
+    background-color: #FFFFFF;
+    border-radius: 16px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+}
+
+/* 메인 버튼 */
+.btn-orange {
+    background-color: #FF8C42;
+    color: #fff;
+    font-weight: 600;
+}
+
+.btn-orange:hover {
+    background-color: #ff7a1f;
+    color: #fff;
+}
