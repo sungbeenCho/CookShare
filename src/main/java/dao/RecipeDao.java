@@ -33,7 +33,7 @@ public class RecipeDao {
     // 레시피 등록
     public int insertRecipe(Recipe recipe) {
         String sql = "INSERT INTO recipe(member_id, title, ingredients, steps, category, level, cook_time, image) " +
-                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
         try (Connection conn = getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
@@ -49,7 +49,6 @@ public class RecipeDao {
 
             pstmt.executeUpdate();
 
-            // 새로 생성된 recipe_id 를 반환하기
             try (ResultSet rs = pstmt.getGeneratedKeys()) {
                 if (rs.next()) {
                     return rs.getInt(1);
@@ -59,7 +58,7 @@ public class RecipeDao {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        return -1; // 실패
+        return -1;
     }
 
     // 최신 레시피 8개
@@ -89,7 +88,7 @@ public class RecipeDao {
         return list;
     }
 
-    // 좋아요 순 Top 5
+    // 좋아요 Top 5
     public List<Recipe> getTop5ByLikes() {
         List<Recipe> list = new ArrayList<>();
         String sql = "SELECT * FROM recipe ORDER BY likes_count DESC LIMIT 5";
@@ -113,7 +112,7 @@ public class RecipeDao {
         return list;
     }
 
-    // recipe_id로 하나 가져오기
+    // recipe_id로 가져오기
     public Recipe getRecipeById(int recipeId) {
         String sql = "SELECT * FROM recipe WHERE recipe_id = ?";
 
@@ -146,7 +145,7 @@ public class RecipeDao {
         return null;
     }
 
-    // memberId로 내가 쓴 레시피 가져오기
+    // 내가 쓴 레시피 목록
     public List<Recipe> getRecipesByMember(String memberId) {
         List<Recipe> list = new ArrayList<>();
 
@@ -194,119 +193,137 @@ public class RecipeDao {
             e.printStackTrace();
         }
     }
- // -----------------------------------------------------------
- // 검색 기능 (keyword / category / level / cookTime / sort)
- // -----------------------------------------------------------
- public List<Recipe> searchRecipes(String keyword, String category,
-                                   String level, String cookTime,
-                                   String sort) {
 
-     List<Recipe> list = new ArrayList<>();
+    // -----------------------------------------------------------
+    // 검색 기능 (keyword / category / level / cookTime / sort)
+    // -----------------------------------------------------------
+    public List<Recipe> searchRecipes(String keyword, String category,
+                                      String level, String cookTime,
+                                      String sort) {
 
-     StringBuilder sql = new StringBuilder("SELECT * FROM recipe WHERE 1=1");
+        List<Recipe> list = new ArrayList<>();
 
-     // 제목 검색
-     if (keyword != null && !keyword.trim().isEmpty()) {
-         sql.append(" AND title LIKE ?");
-     }
+        StringBuilder sql = new StringBuilder("SELECT * FROM recipe WHERE 1=1");
 
-     // 종류(category)
-     if (category != null && !category.trim().isEmpty()) {
-         sql.append(" AND category = ?");
-     }
+        // 제목 검색
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            sql.append(" AND title LIKE ?");
+        }
 
-     // 난이도(level)
-     if (level != null && !level.trim().isEmpty()) {
-         sql.append(" AND level = ?");
-     }
+        // 종류(category)
+        if (category != null && !category.trim().isEmpty()) {
+            sql.append(" AND category = ?");
+        }
 
-     // 조리시간(cookTime)
-     if (cookTime != null && !cookTime.trim().isEmpty()) {
-         sql.append(" AND cook_time <= ?");
-     }
+        // 난이도(level)
+        if (level != null && !level.trim().isEmpty()) {
+            sql.append(" AND level = ?");
+        }
 
-     // 정렬 옵션
-     if ("likes".equals(sort)) {
-         sql.append(" ORDER BY likes_count DESC");
-     } else { 
-         sql.append(" ORDER BY recipe_id DESC"); // 최신순
-     }
+        // 🔥 조리시간 필터 (범위 처리)
+        if (cookTime != null && !cookTime.trim().isEmpty()) {
+            switch (cookTime) {
+                case "20": // 30분 미만
+                    sql.append(" AND cook_time < 30");
+                    break;
 
-     try (Connection conn = getConnection();
-          PreparedStatement pstmt = conn.prepareStatement(sql.toString())) {
+                case "45": // 30~60분
+                    sql.append(" AND cook_time >= 30 AND cook_time <= 60");
+                    break;
 
-         int idx = 1;
+                case "90": // 60~120분
+                    sql.append(" AND cook_time > 60 AND cook_time <= 120");
+                    break;
 
-         if (keyword != null && !keyword.trim().isEmpty()) {
-             pstmt.setString(idx++, "%" + keyword + "%");
-         }
-         if (category != null && !category.trim().isEmpty()) {
-             pstmt.setString(idx++, category);
-         }
-         if (level != null && !level.trim().isEmpty()) {
-             pstmt.setString(idx++, level);
-         }
-         if (cookTime != null && !cookTime.trim().isEmpty()) {
-             pstmt.setInt(idx++, Integer.parseInt(cookTime));
-         }
+                case "150": // 120분 이상
+                    sql.append(" AND cook_time >= 120");
+                    break;
+            }
+        }
 
-         try (ResultSet rs = pstmt.executeQuery()) {
-             while (rs.next()) {
-                 Recipe r = new Recipe();
-                 r.setRecipeId(rs.getInt("recipe_id"));
-                 r.setMemberId(rs.getString("member_id"));
-                 r.setTitle(rs.getString("title"));
-                 r.setCategory(rs.getString("category"));
-                 r.setLevel(rs.getString("level"));
-                 r.setCookTime(rs.getInt("cook_time"));
-                 r.setImage(rs.getString("image"));
-                 r.setLikesCount(rs.getInt("likes_count"));
-                 r.setRegDate(rs.getTimestamp("reg_date"));
-                 list.add(r);
-             }
-         }
+        // 정렬
+        if ("likes".equals(sort)) {
+            sql.append(" ORDER BY likes_count DESC");
+        } else {
+            sql.append(" ORDER BY recipe_id DESC"); // 최신순
+        }
 
-     } catch (Exception e) {
-         e.printStackTrace();
-     }
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql.toString())) {
 
-     return list;
- }
- public int updateRecipe(Recipe r) {
-	    String sql = "UPDATE recipe SET title=?, ingredients=?, steps=?, category=?, level=?, cook_time=?, image=? WHERE recipe_id=?";
+            int idx = 1;
 
-	    try (Connection conn = getConnection();
-	         PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            if (keyword != null && !keyword.trim().isEmpty()) {
+                pstmt.setString(idx++, "%" + keyword + "%");
+            }
+            if (category != null && !category.trim().isEmpty()) {
+                pstmt.setString(idx++, category);
+            }
+            if (level != null && !level.trim().isEmpty()) {
+                pstmt.setString(idx++, level);
+            }
 
-	        pstmt.setString(1, r.getTitle());
-	        pstmt.setString(2, r.getIngredients());
-	        pstmt.setString(3, r.getSteps());
-	        pstmt.setString(4, r.getCategory());
-	        pstmt.setString(5, r.getLevel());
-	        pstmt.setInt(6, r.getCookTime());
-	        pstmt.setString(7, r.getImage());
-	        pstmt.setInt(8, r.getRecipeId());
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    Recipe r = new Recipe();
+                    r.setRecipeId(rs.getInt("recipe_id"));
+                    r.setMemberId(rs.getString("member_id"));
+                    r.setTitle(rs.getString("title"));
+                    r.setCategory(rs.getString("category"));
+                    r.setLevel(rs.getString("level"));
+                    r.setCookTime(rs.getInt("cook_time"));
+                    r.setImage(rs.getString("image"));
+                    r.setLikesCount(rs.getInt("likes_count"));
+                    r.setRegDate(rs.getTimestamp("reg_date"));
+                    list.add(r);
+                }
+            }
 
-	        return pstmt.executeUpdate();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
-	    } catch (Exception e) {
-	        e.printStackTrace();
-	    }
-	    return 0;
-	}
- public int deleteRecipe(int recipeId) {
-	    String sql = "DELETE FROM recipe WHERE recipe_id=?";
+        return list;
+    }
 
-	    try (Connection conn = getConnection();
-	         PreparedStatement pstmt = conn.prepareStatement(sql)) {
+    // 레시피 수정
+    public int updateRecipe(Recipe r) {
+        String sql = "UPDATE recipe SET title=?, ingredients=?, steps=?, category=?, level=?, cook_time=?, image=? WHERE recipe_id=?";
 
-	        pstmt.setInt(1, recipeId);
-	        return pstmt.executeUpdate();
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
-	    } catch (Exception e) {
-	        e.printStackTrace();
-	    }
-	    return 0;
-	}
+            pstmt.setString(1, r.getTitle());
+            pstmt.setString(2, r.getIngredients());
+            pstmt.setString(3, r.getSteps());
+            pstmt.setString(4, r.getCategory());
+            pstmt.setString(5, r.getLevel());
+            pstmt.setInt(6, r.getCookTime());
+            pstmt.setString(7, r.getImage());
+            pstmt.setInt(8, r.getRecipeId());
+
+            return pstmt.executeUpdate();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return 0;
+    }
+
+    // 레시피 삭제
+    public int deleteRecipe(int recipeId) {
+        String sql = "DELETE FROM recipe WHERE recipe_id=?";
+
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setInt(1, recipeId);
+            return pstmt.executeUpdate();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return 0;
+    }
 
 }

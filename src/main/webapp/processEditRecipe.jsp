@@ -1,36 +1,103 @@
 <%@ page import="dao.RecipeDao, dto.Recipe" %>
-<%@ page import="com.oreilly.servlet.MultipartRequest" %>
-<%@ page import="com.oreilly.servlet.multipart.DefaultFileRenamePolicy" %>
+<%@ page import="java.io.File" %>
+<%@ page import="java.util.List, java.util.Iterator" %>
+<%@ page import="org.apache.commons.fileupload.FileItem" %>
+<%@ page import="org.apache.commons.fileupload.disk.DiskFileItemFactory" %>
+<%@ page import="org.apache.commons.fileupload.servlet.ServletFileUpload" %>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 
 <%
     request.setCharacterEncoding("UTF-8");
 
-    String saveFolder = application.getRealPath("/resources/images");
+    // 업로드 폴더 설정
+    String savePath = application.getRealPath("/resources/images");
+    File uploadDir = new File(savePath);
+    if (!uploadDir.exists()) uploadDir.mkdirs();
+
     int maxSize = 10 * 1024 * 1024;
 
-    MultipartRequest multi = new MultipartRequest(
-            request,
-            saveFolder,
-            maxSize,
-            "UTF-8",
-            new DefaultFileRenamePolicy()
-    );
+    // Commons FileUpload 설정
+    DiskFileItemFactory factory = new DiskFileItemFactory();
+    factory.setSizeThreshold(maxSize);
+    factory.setRepository(uploadDir);
 
-    int recipeId = Integer.parseInt(multi.getParameter("recipeId"));
-    String oldImage = multi.getParameter("oldImage");
+    ServletFileUpload upload = new ServletFileUpload(factory);
+    upload.setHeaderEncoding("UTF-8");
 
-    String title = multi.getParameter("title");
-    String ingredients = multi.getParameter("ingredients");
-    String steps = multi.getParameter("steps");
-    String category = multi.getParameter("category");
-    String level = multi.getParameter("level");
-    int cookTime = Integer.parseInt(multi.getParameter("cookTime"));
+    int recipeId = 0;
+    String oldImage = "";
+    String title = "";
+    String ingredients = "";
+    String steps = "";
+    String category = "";
+    String level = "";
+    int cookTime = 0;
 
-    // 파일 새로 업로드했는지 확인
-    String newImage = multi.getFilesystemName("image");
-    String finalImage = (newImage != null) ? newImage : oldImage;
+    String finalImage = "";
 
+    try {
+        List<FileItem> items = upload.parseRequest(request);
+
+        for (FileItem item : items) {
+
+            if (item.isFormField()) {
+                // 텍스트 파라미터
+                String field = item.getFieldName();
+                String value = item.getString("UTF-8");
+
+                switch (field) {
+                    case "recipeId":
+                        recipeId = Integer.parseInt(value);
+                        break;
+                    case "oldImage":
+                        oldImage = value;
+                        break;
+                    case "title":
+                        title = value;
+                        break;
+                    case "ingredients":
+                        ingredients = value;
+                        break;
+                    case "steps":
+                        steps = value;
+                        break;
+                    case "category":
+                        category = value;
+                        break;
+                    case "level":
+                        level = value;
+                        break;
+                    case "cookTime":
+                        cookTime = Integer.parseInt(value);
+                        break;
+                }
+
+            } else {
+                // 파일 업로드 처리
+                if ("image".equals(item.getFieldName())) {
+                    String fileName = new File(item.getName()).getName();
+
+                    if (fileName != null && !fileName.isEmpty()) {
+                        File uploadedFile = new File(savePath + File.separator + fileName);
+                        item.write(uploadedFile);
+                        finalImage = fileName;  // 새로운 이미지 사용
+                    }
+                }
+            }
+        }
+
+        // 이미지 업로드 안 했으면 기존 이미지 유지
+        if (finalImage == null || finalImage.isEmpty()) {
+            finalImage = oldImage;
+        }
+
+    } catch (Exception e) {
+        e.printStackTrace();
+        out.println("Error while editing recipe: " + e.getMessage());
+        return;
+    }
+
+    // DTO 구성
     Recipe r = new Recipe();
     r.setRecipeId(recipeId);
     r.setTitle(title);
@@ -41,6 +108,7 @@
     r.setCookTime(cookTime);
     r.setImage(finalImage);
 
+    // DB 업데이트
     RecipeDao recipeDao = RecipeDao.getInstance();
     recipeDao.updateRecipe(r);
 
