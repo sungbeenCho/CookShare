@@ -20,7 +20,7 @@
 
 2. Eclipse → Import → Dynamic Web Project Import
 
-3. MySQL에서 schema.sql 실행하여 테이블 생성
+3. MySQL에서 schema.sql 실행하여 테이블 생성(resources/sql/schema.sql)
 
 4. RecipeDao, LikeDao, CommentDao, MemberDao의 DB URL/USER/PASSWORD 확인
 
